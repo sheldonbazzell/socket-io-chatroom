@@ -9,7 +9,9 @@
 
 		var name = prompt("Your name:")
 		var socket = io.connect();
+		// send new user info received from prompt
 		socket.emit("got_new_user", {name:name})
+		// receive welcome emit for new user
 		socket.on("welcome", function(users, new_user_id, msgs){
 			$("textarea").attr('id', new_user_id);
 			for(var i = 0; i < msgs.length; i++) {
@@ -21,14 +23,17 @@
 			}
 			$("textarea").attr('name', username);
 		});
-
+		// update clients with appropriate list of users
 		socket.on("update_users_everywhere", function(users){
 			printUsers(users);
 		})
+
+		// receive broadcast of new user name, prompt appropriate clients
 		socket.on("new_user", function(name){
 			prompt(name.new_user_name + " joined the chatroom");
 		});
 
+		// client posting message to board
 		$("#send").click(function(){
 			var msg = $("textarea").val();
 			var user_id = $("textarea").attr('id');
@@ -36,6 +41,7 @@
 			$("textarea").html("");
 		});
 
+		// append new message to board
 		socket.on("new_msg", function(msg, users, user_id){
 			for(var i = 0; i < users.length; i++) {
 				if(users[i][1] == user_id) {
@@ -46,11 +52,12 @@
 			$("#container").append(msgStr);
 		});
 
-
+		// catch user exiting browser, emit disconnection
 		window.onbeforeunload = function() {
 			socket.emit("disconnect");
 		};
 
+		// receive disconnect info containing name of user who left, notify remaining users
 		socket.on("disconnected_user", function(goodbye_user, users) {
 			if(users && goodbye_user) {
 				prompt(goodbye_user + " left the chatroom"); 
@@ -58,10 +65,7 @@
 			}
 		});
 
-		socket.on("empty_messages", function() {
-			$("#container").html("");
-		})
-
+		// helper function to provide updated list of users
 		function printUsers(users) {
 			var users_str = "Users in the chatroom: ";
 			for(var i = 0; i < users.length; i++){
@@ -72,7 +76,6 @@
 		}
 
 	});
-
 
 </script>
 </head>
