@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="style.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+<script type="text/javascript" src="/socket.io/socket.io.js"></script>
+<script type="text/javascript">
+	$(document).ready(function(){
+
+		var name = prompt("Your name:")
+		var socket = io.connect();
+		socket.emit("got_new_user", {name:name})
+		socket.on("welcome", function(users, new_user_id, msgs){
+			$("textarea").attr('id', new_user_id);
+			for(var i = 0; i < msgs.length; i++) {
+				var msgStr = "<p>" + msgs[i][0] + " says: " + msgs[i][1] + "</p>";
+				$("#container").append(msgStr);
+			}
+			for(var j = 0; j < users.length; j++) {
+				if(users[i][1] == new_user_id) { var username = users[i][0]; }
+			}
+			$("textarea").attr('name', username);
+		});
+
+		socket.on("update_users_everywhere", function(users){
+			printUsers(users);
+		})
+		socket.on("new_user", function(name){
+			prompt(name.new_user_name + " joined the chatroom");
+		});
+
+		$("#send").click(function(){
+			var msg = $("textarea").val();
+			var user_id = $("textarea").attr('id');
+			socket.emit("got_new_msg", {msg:msg}, user_id);
+			$("textarea").html("");
+		});
+
+		socket.on("new_msg", function(msg, users, user_id){
+			for(var i = 0; i < users.length; i++) {
+				if(users[i][1] == user_id) {
+					var username = users[i][0];
+				}
+			}
+			var msgStr = "<p>" + username + " says: " + msg.msg + "</p>";
+			$("#container").append(msgStr);
+		});
+
+
+		window.onbeforeunload = function() {
+			socket.emit("disconnect");
+		};
+
+		socket.on("disconnected_user", function(goodbye_user, users) {
+			if(users && goodbye_user) {
+				prompt(goodbye_user + " left the chatroom"); 
+				printUsers(users);
+			}
+		});
+
+		socket.on("empty_messages", function() {
+			$("#container").html("");
+		})
+
+		function printUsers(users) {
+			var users_str = "Users in the chatroom: ";
+			for(var i = 0; i < users.length; i++){
+				if(i === users.length - 1) { users_str += users[i][0] + " "; }
+				else { users_str += users[i][0] + ", "; }
+			}
+			$("#users").html(users_str);
+		}
+
+	});
+
+
+</script>
+</head>
+<body>
+	<h2>Conversation Board</h2>
+	<div id="container"></div>
+	<div id="message">
+		<textarea placeholder="enter your message here"></textarea>
+		<button id="send">Send</button>
+	</div>
+	<div id="users">Users in the chatroom: </div>
+</body>
+</html>
