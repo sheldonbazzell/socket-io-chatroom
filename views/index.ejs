@@ -8,6 +8,7 @@
 	$(document).ready(function(){
 
 		var name = prompt("Your name:")
+		$("textarea").focus();
 		var socket = io.connect();
 		// send new user info received from prompt
 		socket.emit("got_new_user", {name:name})
@@ -31,6 +32,13 @@
 		// receive broadcast of new user name, prompt appropriate clients
 		socket.on("new_user", function(name){
 			prompt(name.new_user_name + " joined the chatroom");
+			$("textarea").focus();
+		});
+
+		$("textarea").keyup(function(event){
+			if(event.keyCode == 13){
+				$("#send").click();
+			}
 		});
 
 		// client posting message to board
@@ -38,7 +46,7 @@
 			var msg = $("textarea").val();
 			var user_id = $("textarea").attr('id');
 			socket.emit("got_new_msg", {msg:msg}, user_id);
-			$("textarea").html("");
+			$("textarea").val("");
 		});
 
 		// append new message to board
@@ -67,7 +75,7 @@
 
 		// helper function to provide updated list of users
 		function printUsers(users) {
-			var users_str = "Users in the chatroom: ";
+			var users_str = "Customer's name: ";
 			for(var i = 0; i < users.length; i++){
 				if(i === users.length - 1) { users_str += users[i][0] + " "; }
 				else { users_str += users[i][0] + ", "; }
@@ -80,12 +88,12 @@
 </script>
 </head>
 <body>
-	<h2>Conversation Board</h2>
+	<h2>Customer Service</h2>
 	<div id="container"></div>
 	<div id="message">
 		<textarea placeholder="enter your message here"></textarea>
 		<button id="send">Send</button>
 	</div>
-	<div id="users">Users in the chatroom: </div>
+	<!--<div id="users"></div>-->
 </body>
 </html>
