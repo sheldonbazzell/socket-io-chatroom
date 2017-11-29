@@ -1,99 +1,86 @@
 <!DOCTYPE html>
 <html>
 <head>
-<link rel="stylesheet" type="text/css" href="style.css">
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
-<script type="text/javascript" src="/socket.io/socket.io.js"></script>
-<script type="text/javascript">
-	$(document).ready(function(){
+	<link rel="stylesheet" type="text/css" href="style.css">
+	<script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+	<script type="text/javascript" src="/socket.io/socket.io.js"></script>
+	<script>
+		"use strict";
+		$(document).ready(function(){
 
-		var name = prompt("Your name:")
-		$("textarea").focus();
-		var socket = io.connect();
-		// send new user info received from prompt
-		socket.emit("got_new_user", {name:name})
-		// receive welcome emit for new user
-		socket.on("welcome", function(users, new_user_id, msgs){
-			$("textarea").attr('id', new_user_id);
-			for(var i = 0; i < msgs.length; i++) {
-				var msgStr = "<p>" + msgs[i][0] + " says: " + msgs[i][1] + "</p>";
-				$("#container").append(msgStr);
-			}
-			for(var j = 0; j < users.length; j++) {
-				if(users[i][1] == new_user_id) { var username = users[i][0]; }
-			}
-			$("textarea").attr('name', username);
-		});
-		// update clients with appropriate list of users
-		socket.on("update_users_everywhere", function(users){
-			printUsers(users);
-		})
+			const socket = io.connect();
 
-		// receive broadcast of new user name, prompt appropriate clients
-		socket.on("new_user", function(name){
-			prompt(name.new_user_name + " joined the chatroom");
+			var name = prompt("Your name:")
 			$("textarea").focus();
-		});
+			socket.emit("got_new_user", {name})
 
-		$("textarea").keyup(function(event){
-			if(event.keyCode == 13){
-				$("#send").click();
-			}
-		});
+			socket.on("welcome", data => {
+				printMsgs(data.msgs);
+				setTextareaData(data.username, data.id);
+			});
 
-		// client posting message to board
-		$("#send").click(function(){
-			var msg = $("textarea").val();
-			var user_id = $("textarea").attr('id');
-			socket.emit("got_new_msg", {msg:msg}, user_id);
-			$("textarea").val("");
-		});
+			socket.on("update_users_everywhere", users => printUsers(users));
 
-		// append new message to board
-		socket.on("new_msg", function(msg, users, user_id){
-			for(var i = 0; i < users.length; i++) {
-				if(users[i][1] == user_id) {
-					var username = users[i][0];
-				}
-			}
-			var msgStr = "<p>" + username + " says: " + msg.msg + "</p>";
-			$("#container").append(msgStr);
-		});
+			socket.on("new_user", name => {
+				alert(`${name.new_user_name} joined the chatroom`);
+				$("textarea").focus();
+			});
 
-		// catch user exiting browser, emit disconnection
-		window.onbeforeunload = function() {
-			socket.emit("disconnect");
-		};
+			$("textarea").keyup(event => { if(event.keyCode == 13) $("#send").click() });
 
-		// receive disconnect info containing name of user who left, notify remaining users
-		socket.on("disconnected_user", function(goodbye_user, users) {
-			if(users && goodbye_user) {
-				prompt(goodbye_user + " left the chatroom"); 
+			$("#send").click(function(){
+				const msg = $("textarea").val();
+				const userId = $("textarea").attr('id');
+				socket.emit("got_new_msg", {msg:msg}, userId);
+				$("textarea").val("");
+			});
+
+			socket.on("new_msg", function(msg, users, userId){
+				const username = users.find(u => u.id === userId).username;
+				const msgStr = `<p>${username} says: ${msg.msg}</p>`;
+				$("#container").append(msgStr);
+			});
+
+			window.onbeforeunload = () => socket.emit("disconnect");
+
+			socket.on("disconnected_user", (goodbyeUser, users) => {
+				alert(`${goodbyeUser} left the chatroom`); 
 				printUsers(users);
+			});
+
+			function setTextareaData(name, id) {
+				$("textarea").attr('name', name);
+				$("textarea").attr('id', id);
+			} 
+
+			function printMsgs(msgs) {
+				msgs.forEach(msg => {
+					const msgStr = `<p>${msg.username} says: ${msg.msg}</p>`;
+					$("#container").append(msgStr);
+				});
 			}
+
+			function printUsers(users) {
+				var initialStr = "Users in the chatroom: ";
+				const usersStr = users.reduce((str, user, i) => {
+					return i === users.length - 1 ?
+					`${str}${user.username} ` : `${str}${user.username}, `
+				}, initialStr);
+				$("#users").html(usersStr);
+			}
+
 		});
-
-		// helper function to provide updated list of users
-		function printUsers(users) {
-			var users_str = "Customer's name: ";
-			for(var i = 0; i < users.length; i++){
-				if(i === users.length - 1) { users_str += users[i][0] + " "; }
-				else { users_str += users[i][0] + ", "; }
-			}
-			$("#users").html(users_str);
-		}
-
-	});
-
-</script>
+	</script>
 </head>
 <body>
-	<h2>Customer Service</h2>
+	<h2>Chat Room</h2>
 	<div id="container"></div>
 	<div id="message">
 		<textarea placeholder="enter your message here"></textarea>
-		<button id="send">Send</button>
+		<div class="button-wrapper">
+			<button id="send">Send</button>
+		</div>
 	</div>
-	<!--<div id="users"></div>-->
+	<div id="users"></div>
 </body>
 </html>

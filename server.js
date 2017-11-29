@@ -1,65 +1,54 @@
-var express = require("express");
-var path = require("path");
-var app = express();
+const express = require("express"),
+path = require("path"),
+app = express(),
+port = 8000;
 
 app.use(express.static(path.join(__dirname, "./static")));
 app.set("views", path.join(__dirname, "./views"));
 app.set("view engine", "ejs");
-app.get("/", function(req,res){
-	res.render("index");
-})
+
+app.get("/", (req,res) => { res.render("index") })
+
+const server = app.listen(port, () => { console.log("listening on port 8000") });
+const io = require("socket.io").listen(server);
+
 var users = [], msgs = [];
 
-var server = app.listen(8000, function(){
-	console.log("listening on port 8000")
-});
-
-var io = require("socket.io").listen(server);
-io.sockets.on("connection", function(socket){
-	console.log("USING SOCKETS");
-	console.log(socket.id);
-	socket.on("got_new_user", function(name){
-		// set user's session id to his/her socket id
-		var sessionID = socket.id
-		// add new user to users array
-		users.push([name.name, sessionID]);
-		// new user comes in, alert everyone (other than new user)
+io.sockets.on("connection", socket => {
+	
+	socket.on("got_new_user", name => {
+		users.push({username:name.name, id:socket.id});
 		socket.broadcast.emit("new_user", {new_user_name:name.name});
-		// send welcome msg back to new user
-		socket.emit("welcome", users, sessionID, msgs);
-		// update all clients with new list of users in chatroom
+		const username = users.find(u => u.id === socket.id).username;
+		socket.emit("welcome", { username, id: socket.id, msgs });
 		io.emit("update_users_everywhere", users);
 	});
-	// add new msg to msgs array
-	socket.on("got_new_msg", function(msg, user_id){
-		console.log(user_id)
-		for(var i = 0; i < users.length; i++) {
-			if(users[i][1] == user_id) { var username = users[i][0]; }
-		}
-		msgs.push([username, msg.msg])
-		// send the new message to everyone
-		io.emit("new_msg", {msg:msg.msg}, users, user_id);
+
+	socket.on("got_new_msg", (msg, userId) => {
+		const username = users.find(u => u.id === userId).username;
+		msgs.push({username, msg:msg.msg})
+		io.emit("new_msg", { msg: msg.msg }, users, userId);
 	})
-	// receive notice of user leaving chatroom
-	socket.on("disconnect", function(){
-		for(var i = 0; i < users.length; i++) {
-			if(users[i][1] == socket.id) {
-				var goodbye_user = users[i][0];
-				users.splice(i, 1);
-			}
+
+	socket.on("disconnect", () => {
+		var newUsers = users;
+		const i = newUsers.findIndex(u => u.id === socket.id);
+		if (i !== -1) {
+			const goodbyeUser = newUsers[i].username;
+			newUsers.splice(i, 1);
+			io.emit("disconnected_user", goodbyeUser, newUsers);
 		}
-		// update all remaining users with notice that someone left
-		io.emit("disconnected_user", goodbye_user, users);
 	})
+
 })
 
-// debugging tool & monitor that msgs are up to date if users array is empty
-setInterval(function() {
-	console.log(users, ' line 59 users')
-	console.log(msgs, ' line 60 msgs')
-	if(!users[0]) {
-		console.log('line 47, no users no msg', msgs)
-		msgs = [];
-		console.log('line 50, no users no msg', msgs)
-	}
-}, 1000)
+// debugging tool
+// setInterval(function() {
+// 	console.log('line 59 users:', users)
+// 	console.log('line 60 msgs:', msgs)
+// 	if(!users) {
+// 		console.log('line 47, no users no msg', msgs)
+// 		msgs = [];
+// 		console.log('line 50, no users no msg', msgs)
+// 	}
+// }, 1000)
